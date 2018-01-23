@@ -1,0 +1,5 @@
+-r sequence_tagging/requirements.txt
+sklearn
+tensorflow
+numpy
+scipy
