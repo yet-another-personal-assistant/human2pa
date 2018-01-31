@@ -56,7 +56,7 @@ def create_tagger_training_data(en, tags):
         result.append('')
     return result[:-1]
 
-COUNT=200
+COUNT=1000
 
 
 def main():
@@ -82,13 +82,9 @@ def main():
         for _ in range(COUNT):
             add_sample(make_sample(rs, c))
 
-    words=set('''world test post rest split word best least
-    last mirror bird dog cat gold science python teach go computer task
-    meat food stack light fly bag people human bot nice linear white
-    black green gold'''.split())
     for _ in range(COUNT):
-        count = int(random.gauss(10, 2))
-        add_sample(make_sample(rs, 'unknown', *random.sample(words, count)))
+        count = int(random.gauss(15, 5))
+        add_sample(make_sample(rs, 'maki-uchi-log', count))
 
     tagger_data = create_tagger_training_data(en, tags)
     with open(os.path.join(tagger_data_dir, 'test.txt'), 'w') as tf:

@@ -1,0 +1,21 @@
+! version = 2.0
++ ping
+- hello
+- hi
+- hi there
+- hello, sweetie
+- you here?
+- ping
+- yo
+- hey
++ yes
+- yes
+- yep
+- yeah
++ no
+- no
+- not yet
+- nope
++ maki-uchi-log #
+- I did <star>|makiuchi-count maki-uchi {random}today|{/random}
+- I just did <star>|makiuchi-count maki-uchi

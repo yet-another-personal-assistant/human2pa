@@ -18,9 +18,8 @@ class MyTranslator:
 
     def classify(self, line):
         X = pad_sequences([self.embed(line)],
-                            padding='post', maxlen=self.max_length)
+                          padding='post', maxlen=self.max_length)
         res = self.model.predict(X)
-        print(res)
         return self.lb.inverse_transform(res)[0]
 
     def embed(self, sentence):
@@ -41,7 +40,21 @@ def main():
     translator = MyTranslator(lb, model)
     translator.vocab_size = len(vocab)
 
-    print(translator.classify(' '.join(sys.argv)))
+    print(one_hot('hey you', len(vocab)))
+    print(one_hot('hey you', len(vocab)))
+    print(one_hot('hey you', len(vocab)))
+
+    tst_en = os.path.join(data_dir, "train.en")
+    tst_pa = os.path.join(data_dir, "train.pa")
+    cnt = 0
+    wrong = 0
+    with open(tst_en) as fen, open(tst_pa) as fpa:
+        for en, pa in zip(fen.readlines(), fpa.readlines()):
+            cls = translator.classify(en)
+            act = pa.split(maxsplit=2)[1]
+            cnt += 1
+            wrong += int(cls != act)
+    print(cnt, wrong, (cnt-wrong)/cnt*100)
 
 
 if __name__ == '__main__':

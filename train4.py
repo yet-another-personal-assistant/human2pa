@@ -2,27 +2,34 @@
 import os
 import pickle
 
+from gensim.models import Word2Vec
 from keras.models import Sequential
 from keras.layers import Dense, Flatten
 from keras.layers.embeddings import Embedding
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import one_hot
-from sklearn.preprocessing import LabelBinarizer 
+from sklearn.preprocessing import LabelBinarizer, OneHotEncoder
+
 
 class MyTranslator:
 
     def __init__(self):
         self.max_length = 32
         self.lb = LabelBinarizer()
+        self.w2v = Word2Vec(iter=1)
+        self.model = Sequential()
 
     def build_keras_model(self):
-        self.model = Sequential()
-        self.model.add(Embedding(self.vocab_size, 8, input_length=self.max_length))
-        self.model.add(Flatten())
+        pass
+
+    def keras_train(self, lines, labels):
+        self.w2v.build_vocab(lines)
+        self.w2v.train(lines, total_examples=len(lines), epochs=1)
+        embedding = self.w2v.wv.get_keras_embedding()
+        self.model.add(Flatten(8))
         self.model.add(Dense(len(self.lb.classes_), activation='sigmoid'))
         self.model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['acc'])
 
-    def keras_train(self, lines, labels):
         X = pad_sequences([self.embed(line) for line in lines],
                             padding='post', maxlen=self.max_length)
         y = self.lb.transform(labels)
