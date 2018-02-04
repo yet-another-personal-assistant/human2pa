@@ -57,10 +57,11 @@
 - data-weather-when(now)
 - data-weather-when(tomorrow)
 - data-weather-when(today)
+- data-weather-when(tonight)
 - data-weather-when(later today)
 
 + weather
-@ maybe-please weather-without-please
+- {@maybe-please weather-without-please}
 - what is the weather {@weather-when}?
 
 + weather-without-please
@@ -71,7 +72,7 @@
 - right now
 
 + status
-@ maybe-please status-without-please
+- {@maybe-please status-without-please}
 - what's your status?
 - are you busy now?
 - what are you doing @{status-when}?
