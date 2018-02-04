@@ -3,10 +3,12 @@ import os
 import pickle
 import sys
 
-from keras.models import model_from_json
+from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
-from keras.preprocessing.text import one_hot
-from sklearn.preprocessing import LabelBinarizer 
+from keras.preprocessing.text import hashing_trick
+from sklearn.preprocessing import LabelBinarizer
+
+HASH_SIZE=1000
 
 
 class MyTranslator:
@@ -18,21 +20,27 @@ class MyTranslator:
 
     def classify(self, line):
         X = pad_sequences([self.embed(line)],
-                            padding='post', maxlen=self.max_length)
+                          padding='post', maxlen=self.max_length)
         res = self.model.predict(X)
-        print(res)
-        return self.lb.inverse_transform(res)[0]
+        print(res[0])
+        m = max(res[0])
+        c = self.lb.inverse_transform(res)[0]
+        if m > 0.05:
+            return c
+        elif m > 0.02:
+            return 'probably ' + c
+        else:
+            return 'unknown' 
 
     def embed(self, sentence):
-        return one_hot(sentence, self.vocab_size)
+        return hashing_trick(sentence, HASH_SIZE, 'md5')
 
 
 def main():
     this_dir = os.path.dirname(__file__)
     data_dir = os.path.join(this_dir, "gen_data")
 
-    with open(os.path.join(data_dir, "trained.cls")) as model_file:
-        model = model_from_json(model_file.read())
+    model = load_model(os.path.join(data_dir, "trained.cls"))
     with open(os.path.join(data_dir, "trained.lb"), 'rb') as labels_file:
         lb = pickle.load(labels_file)
     with open(os.path.join(data_dir, "vocab.en")) as vocab_file:

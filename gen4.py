@@ -2,44 +2,35 @@
 
 import os
 import random
+import re
 
 from rivescript.rivescript import RiveScript
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 
 
-chars = [chr(x + ord('a')) for x in range(26)]
-chars.extend([chr(x + ord('0')) for x in range(10)])
-
-add_words = ["print", "send", "emit"]
-modify_words = ["modify", "change", "alter"]
-cancel_words = ["cancel", "stop"]
-delay_words = ["in", "after"]
-repeat_words = ["every"]
-
-for w in add_words.copy():
-    add_words.append("start {}ing".format(w))
-    cancel_words.append("stop {}ing".format(w))
-
+tag_var_re = re.compile(r'data-([a-z-]+)\((.*?)\)|(\S+)')
 
 def make_sample(rs, cls, *args, **kwargs):
     tokens = [cls] + list(args)
     for k, v in kwargs.items():
         tokens.append(k)
         tokens.append(v)
-    tr_string = ' '.join(map(str, tokens))
-    result = rs.reply('', tr_string)
-    cmd = ['command', cls]
-    en = []
-    tags = []
-    for w in result.split():
-        if '|' in w:
-            w, t = w.split('|')
-            cmd.extend([t, w])
+    result = rs.reply('', ' '.join(map(str, tokens))).strip()
+    cmd, en, tags = [cls], [], []
+    for tag, value, just_word in tag_var_re.findall(result):
+        if just_word:
+            en.append(just_word)
+            tags.append('O')
         else:
-            t = 'O'
-        en.append(w)
-        tags.append(t)
+            words = value.split()
+            en.append(words.pop(0))
+            tags.append('B-'+tag)
+            for word in words:
+                en.append(word)
+                tags.append('I-'+tag)
+            cmd.append(tag+':')
+            cmd.append('"'+value+'"')
     return cmd, en, tags
 
 
@@ -57,7 +48,6 @@ def create_tagger_training_data(en, tags):
     return result[:-1]
 
 COUNT=1000
-
 
 def main():
     this_dir = os.path.dirname(__file__)
@@ -78,13 +68,45 @@ def main():
     rs.load_directory(os.path.join(this_dir, 'human_train_1'))
     rs.sort_replies()
 
-    for c in ('yes', 'no', 'ping'):
+    for c in ('yes', 'no', 'ping', 'acknowledge', 'weather', 'status'):
         for _ in range(COUNT):
             add_sample(make_sample(rs, c))
 
     for _ in range(COUNT):
         count = int(random.gauss(15, 5))
-        add_sample(make_sample(rs, 'maki-uchi-log', count))
+        add_sample(make_sample(rs, 'makiuchi', count))
+
+    to_remind = ['wash hands', 'read books', 'make tea', 'pay bills',
+                 'eat food', 'buy stuff', 'take a walk', 'do maki-uchi',
+                 'say hello', 'say yes', 'say no', 'play games']
+
+    for _ in range(COUNT):
+        r = random.choice(to_remind)
+        add_sample(make_sample(rs, 'remind', r))
+
+    for _ in range(COUNT):
+        r1, r2 = random.sample(to_remind, 2)
+        add_sample(make_sample(rs, 'remind', r1, 'and', r2))
+
+    things = ['puppies', 'kittens', 'food', 'mountains', 'sea',
+              'wild animals', 'nature', 'abstract art', 'sky', 'flowers',
+              'forest', 'wildlife', 'dragons', 'armors', 'castles']
+    for _ in range(COUNT):
+        t = random.choice(things)
+        add_sample(make_sample(rs, 'find', t))
+
+    for _ in range(COUNT):
+        t1, t2 = random.sample(things, 2)
+        add_sample(make_sample(rs, 'find', t1, 'or', t2))
+
+    for _ in range(COUNT):
+        t1, t2 = random.sample(things, 2)
+        add_sample(make_sample(rs, 'find', t1, 'and', t2))
+
+    for _ in range(COUNT):
+        h = int(random.gauss(8, 2))
+        m = 5 * random.randrange(12)
+        add_sample(make_sample(rs, 'wakeup', h, m))
 
     tagger_data = create_tagger_training_data(en, tags)
     with open(os.path.join(tagger_data_dir, 'test.txt'), 'w') as tf:

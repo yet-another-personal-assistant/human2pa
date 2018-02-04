@@ -2,3 +2,6 @@ sklearn
 tensorflow
 numpy
 scipy
+keras
+rivescript
+h5py

@@ -1,0 +1,16 @@
+! version = 2.0
++ remind * and * {weight=100}
+@ maybe-please remind-without-please data-remind-action(<star1>) and data-remind-action(<star2>)
+
++ remind *
+@ maybe-please remind-without-please data-remind-action(<star>)
+
++ remind-without-please *
+- remind me to <star>
+- remind me data-remind-when({@when}) to <star>
+- remind me to <star> data-remind-when({@when})
+
++ when
+- today
+- later
+- tomorrow

@@ -1,21 +1,82 @@
 ! version = 2.0
-+ ping
++ hello
 - hello
+- hey
 - hi
-- hi there
-- hello, sweetie
-- you here?
+
++ ping
+- {@hello}{random}|, sweetie{/random}
+- {@hello} there
+- {random}are |{/random}you {random}here|there{/random}?
 - ping
 - yo
-- hey
+
 + yes
 - yes
 - yep
 - yeah
+
 + no
 - no
 - not yet
 - nope
-+ maki-uchi-log #
-- I did <star>|makiuchi-count maki-uchi {random}today|{/random}
-- I just did <star>|makiuchi-count maki-uchi
+
++ makiuchi #
+- i did data-makiuchi-count(<star>) maki-uchi {random}today|{/random}
+- i just did data-makiuchi-count(<star>) maki-uchi
+
++ maybe-please *
+- <@> {weight=3}
+- please, <@>
+- <@>, please
+
++ acknowledge
+- thanks
+- thank you
+- got it
+- ok
+
++ find * (and|or) * {weight=100}
+@ maybe-please find-without-please data-find-what(<star1>) <star2> data-find-what(<star3>)
+
++ find *
+@ maybe-please find-without-please data-find-what(<star>)
+
++ find-without-please *
+- find {random}me|{/random} {random}some|{/random} {random}pictures of|{/random} <star>
+
++ wakeup # #
+@ maybe-please wakeup-without-please data-wakeup-time(<star1>:<star2>)
+
++ wakeup-without-please *
+- wake me up at <star> {random}|tomorrow{/random}
+- set alarm to <star>
+
++ weather-when
+- outside
+- data-weather-when(now)
+- data-weather-when(tomorrow)
+- data-weather-when(today)
+- data-weather-when(later today)
+
++ weather
+@ maybe-please weather-without-please
+- what is the weather {@weather-when}?
+
++ weather-without-please
+- {random}tell|show{/random} {random}|me{/random} the weather {@weather-when}
+
++ status-when
+- now
+- right now
+
++ status
+@ maybe-please status-without-please
+- what's your status?
+- are you busy now?
+- what are you doing @{status-when}?
+- what are you doing?
+
++ status-without-please
+- tell me your status {@status-when}
+- tell me your status
