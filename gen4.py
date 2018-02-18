@@ -5,7 +5,6 @@ import random
 import re
 
 from rivescript.rivescript import RiveScript
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 
 
@@ -17,6 +16,8 @@ def make_sample(rs, cls, *args, **kwargs):
         tokens.append(k)
         tokens.append(v)
     result = rs.reply('', ' '.join(map(str, tokens))).strip()
+    if result == '[ERR: No Reply Matched]':
+        raise Exception("failed to generate string for {}".format(tokens))
     cmd, en, tags = [cls], [], []
     for tag, value, just_word in tag_var_re.findall(result):
         if just_word:
@@ -34,20 +35,7 @@ def make_sample(rs, cls, *args, **kwargs):
     return cmd, en, tags
 
 
-def make_vocab(lines):
-    vectorizer = TfidfVectorizer()
-    vectorizer.fit(lines)
-    return list(vectorizer.vocabulary_.keys())
-
-
-def create_tagger_training_data(en, tags):
-    result = []
-    for e, tg in zip(en, tags):
-        result.extend('{} {}'.format(w, t) for w, t in zip(e, tg))
-        result.append('')
-    return result[:-1]
-
-COUNT=1000
+COUNT=100
 
 def main():
     this_dir = os.path.dirname(__file__)
@@ -55,9 +43,7 @@ def main():
     tagger_dir = os.path.join(this_dir, 'sequence_tagging')
     tagger_data_dir = os.path.join(tagger_dir, 'data')
 
-    en = []
-    pa = []
-    tags = []
+    en, pa, tags = [], [], []
     def add_sample(sample):
         p, e, t = sample
         en.append(e)
@@ -73,12 +59,13 @@ def main():
             add_sample(make_sample(rs, c))
 
     for _ in range(COUNT):
-        count = int(random.gauss(15, 5))
+        count = max(int(random.gauss(15, 5)), 1)
         add_sample(make_sample(rs, 'makiuchi', count))
 
     to_remind = ['wash hands', 'read books', 'make tea', 'pay bills',
                  'eat food', 'buy stuff', 'take a walk', 'do maki-uchi',
-                 'say hello', 'say yes', 'say no', 'play games']
+                 'say hello', 'say yes', 'say no', 'play games',
+                 'drink more water', 'drink some tea']
 
     for _ in range(COUNT):
         r = random.choice(to_remind)
@@ -90,7 +77,8 @@ def main():
 
     things = ['puppies', 'kittens', 'food', 'mountains', 'sea',
               'wild animals', 'nature', 'abstract art', 'sky', 'flowers',
-              'forest', 'wildlife', 'dragons', 'armors', 'castles']
+              'forest', 'wildlife', 'dragons', 'armors', 'castles',
+              'tea', 'water', 'milk']
     for _ in range(COUNT):
         t = random.choice(things)
         add_sample(make_sample(rs, 'find', t))
@@ -108,36 +96,26 @@ def main():
         m = 5 * random.randrange(12)
         add_sample(make_sample(rs, 'wakeup', h, m))
 
-    tagger_data = create_tagger_training_data(en, tags)
-    with open(os.path.join(tagger_data_dir, 'test.txt'), 'w') as tf:
-        for td in tagger_data:
-            print(td, file=tf)
-
     en_lines = [' '.join(e) for e in en]
-    ven = os.path.join(data_dir, "vocab.en")
-    with open(ven, "w") as fen:
-        for w in make_vocab(en_lines):
-            print(w, file=fen)
-
+    tag_lines = [' '.join(t) for t in tags]
     pa_lines = [' '.join(p) for p in pa]
-    vpa = os.path.join(data_dir, "vocab.pa")
-    with open(vpa, "w") as fpa:
-        for w in make_vocab(pa_lines):
-            print(w, file=fpa)
 
-    train_en, test_en, train_pa, test_pa = train_test_split(en_lines, pa_lines, train_size=0.6)
-    dev_en, test_en, dev_pa, test_pa = train_test_split(test_en, test_pa, train_size=0.5)
+    tr_e, tst_e, tr_pa, tst_pa, tr_t, tst_t = train_test_split(en_lines, pa_lines, tag_lines, train_size=0.6)
+    d_e, tst_e, d_pa, tst_pa, d_t, tst_t = train_test_split(tst_e, tst_pa, tst_t, train_size=0.5)
 
-    for prefix, data_en, data_pa in (('train', train_en, train_pa),
-                                     ('dev', dev_en, dev_pa),
-                                     ('tst', test_en, test_pa)):
+    for prefix, data_en, data_pa, data_tg in (('train', tr_e, tr_pa, tr_t),
+                                              ('dev', d_e, d_pa, d_t),
+                                              ('tst', tst_e, tst_pa, tst_t)):
         fen = os.path.join(data_dir, prefix+".en")
         fpa = os.path.join(data_dir, prefix+".pa")
-        with open(fen, "w") as fen, open(fpa, "w") as fpa:
+        ftg = os.path.join(data_dir, prefix+".tg")
+        with open(fen, "w") as fen, open(fpa, "w") as fpa, open(ftg, "w") as ftg:
             for p in data_en:
                 print(p, file=fen)
             for p in data_pa:
                 print(p, file=fpa)
+            for p in data_tg:
+                print(p, file=ftg)
 
 if __name__ == '__main__':
     main()
