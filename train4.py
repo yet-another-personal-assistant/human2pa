@@ -3,9 +3,15 @@ import logging
 import os
 import time
 
-from gensim.models import word2vec
-from sequence_tagging.model.ner_model import NERModel
-from sequence_tagging.model.data_utils import CoNLLDataset, get_processing_word
+import numpy as np
+
+from gensim.models import Word2Vec
+from keras.layers import Flatten
+from keras.layers.embeddings import Embedding
+from keras.models import Sequential
+from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import hashing_trick
+from seq2seq.models import SimpleSeq2Seq
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 from translator import Translator
@@ -13,7 +19,7 @@ from translator import Translator
 
 def load_sentences(file_name):
     with open(file_name) as fen:
-        return fen.readlines()
+        return [l.strip() for l in fen.readlines()]
 
 
 def load_labels(file_name):
@@ -35,82 +41,61 @@ def load_vocab(lines):
     return vectorizer.vocabulary_
 
 
-def load_ner_vocab(lines):
-    vocab = set()
-    for line in lines:
-        vocab.update(line.split())
-    return dict((w, i) for i, w in enumerate(vocab))
+TOKEN_REPRESENTATION_SIZE = 256
+VOCAB_MAX_SIZE = 20000
+TOKEN_MIN_FREQUENCY = 1
+INPUT_SEQUENCE_LENGTH = 32
+HIDDEN_LAYER_DIMENSION = 512
+ANSWER_MAX_TOKEN_LENGTH = 32
+TRAIN_BATCH_SIZE = 50
+
+def make_tagger_dataset(tags):
+    tokenized_en_lines = [s.split() + ['$$$'] for s in tags]
+    en_vocab = set()
+    for s in tokenized_en_lines:
+        en_vocab.update(s)
+    en_vocab.add('###')
+    assert(len(en_vocab) < VOCAB_MAX_SIZE) # TODO: actually discard stuff
+    index_to_token = dict(enumerate(en_vocab))
+
+    return tokenized_en_lines, index_to_token
 
 
-class MyConfig:
-    dim_word = 300
-    dim_char = 100
-    hidden_size_char = 100 # lstm on chars
-    hidden_size_lstm = 300 # lstm on word embeddings
-    train_embeddings = False
-    use_crf = True
-    use_chars = True
-    nepochs          = 15
-    dropout          = 0.5
-    batch_size       = 20
-    lr_method        = "adam"
-    lr               = 0.001
-    lr_decay         = 0.9
-    clip             = -1 # if negative, no clipping
-    nepoch_no_imprv  = 3
-
-    dir_output = "results/test/"
-    dir_model  = dir_output + "model.weights/"
-    path_log   = dir_output + "log.txt"
+def make_nn_model(output_dim):
+    model = Sequential()
+    model.add(Embedding(256, TOKEN_REPRESENTATION_SIZE,
+                        input_length=INPUT_SEQUENCE_LENGTH))
+    model.add(SimpleSeq2Seq(input_dim=TOKEN_REPRESENTATION_SIZE,
+                            input_length=INPUT_SEQUENCE_LENGTH,
+                            hidden_dim=HIDDEN_LAYER_DIMENSION,
+                            output_dim=output_dim,
+                            output_length=ANSWER_MAX_TOKEN_LENGTH,
+                            depth=1))
+    model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
+    return model
 
 
-    def __init__(self, sentences, tags):
-        self.logger = logging.getLogger(__name__)
-        new_sentences = [s.split() for s in sentences]
-        new_sentences.append(['$UNK$'])
-        wv_model = word2vec.Word2Vec(new_sentences, min_count=1)
-        w2v = wv_model.wv
-        self.embeddings = w2v.vectors
-        self.vocab_words = w2v
-        self.vocab_tags = load_ner_vocab(tags)
-        self.ntags = len(self.vocab_tags)
+def _embed(sentence):
+    return hashing_trick(sentence, 256, 'md5')
+    
 
-        chars = set()
-        for word in load_ner_vocab(sentences):
-            [chars.add(c) for c in word]
-            cd = {}
-        for i, c in enumerate(chars):
-            cd[c] = i
-
-        self.vocab_chars = cd
-        self.nchars = len(cd)
-        self.processing_word = get_processing_word(self.vocab_words,
-                                                   self.vocab_chars,
-                                                   lowercase=True,
-                                                   chars=self.use_chars)
-        self.processing_tag  = get_processing_word(self.vocab_tags,
-                                                   lowercase=False,
-                                                   allow_unk=False)
+def make_training_data(en, tg, index2token):
+    token2index = dict((v, k) for k, v in index2token.items())
+    voc_size = len(token2index)
+    X = pad_sequences([_embed(line) for line in en],
+                      padding='post', maxlen=INPUT_SEQUENCE_LENGTH)
+    Y = np.zeros((len(en), ANSWER_MAX_TOKEN_LENGTH, voc_size), dtype=np.bool)
+    for i, s in enumerate(tg):
+        for ti, t in enumerate(s):
+            Y[i, ti, token2index[t]] = 1
+    return X, Y
 
 
-def make_ner_model(config):
-    ner_model = NERModel(config)
-    ner_model.build()
-    return ner_model
+def train_nn_model(nn_model, en_lines, tagger_tg_dataset):
+    tg_for_nn, index2token = tagger_tg_dataset
 
-
-def make_ner_dataset(filename, sentences, tags, config):
-    with open(filename, "w") as datafile:
-        for s, ts in zip(sentences, tags):
-            for w, t in zip(s.split(), ts.split()):
-                if t not in config.vocab_tags:
-                    raise Exception(t, "not in vocab tags!")
-                print(w, t, file=datafile)
-            print(file=datafile)
-
-    dataset = CoNLLDataset(filename, config.processing_word,
-                           config.processing_tag, None)
-    return dataset
+    X, Y = make_training_data(en_lines, tg_for_nn, index2token)
+    nn_model.fit(X, Y, batch_size=TRAIN_BATCH_SIZE, epochs=10, verbose=1)
 
 
 def main():
@@ -124,28 +109,12 @@ def main():
     translator = Translator(label_count)
     translator.lb.fit(labels)
 
-    ner_config = MyConfig(sentences, tags)
-    print(ner_config.vocab_tags)
-    print(ner_config.embeddings.shape)
-    ner_model = make_ner_model(ner_config)
-    ner_train = make_ner_dataset(os.path.join(data_dir, "ner_train"),
-                                 sentences, tags, ner_config)
+    tagger_tg_dataset = make_tagger_dataset(tags)
+    tagger_nn_model = make_nn_model(len(tagger_tg_dataset[1]))
 
-    v_sentences = load_sentences(os.path.join(data_dir, "dev.en"))
-    v_labels = load_labels(os.path.join(data_dir, "dev.pa"))
-    v_tags = load_sentences(os.path.join(data_dir, "dev.tg"))
-    ner_dev = make_ner_dataset(os.path.join(data_dir, "ner_dev"),
-                               v_sentences, v_tags, ner_config)
-
-    ner_model.train(ner_train, ner_dev)
+    train_nn_model(tagger_nn_model, sentences, tagger_tg_dataset)
 
     return
-
-    test_tagger_train(sentences, labels, tags)
-
-
-    translator.train_tagger(sentences, tags,
-                            validation=(v_sentences, v_tags))
 
     translator.train_classifier(sentences, labels,
                                 validation=(v_sentences, v_labels))

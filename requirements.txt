@@ -5,3 +5,5 @@ scipy
 keras
 rivescript
 h5py
+git+https://www.github.com/datalogai/recurrentshop.git
+git+https://github.com/farizrahman4u/seq2seq.git

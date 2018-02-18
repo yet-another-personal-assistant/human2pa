@@ -26,7 +26,7 @@ def _make_tagger(vocab_size, tag_vocab_size, input_length):
 
 
 def _embed(sentence):
-        return hashing_trick(sentence, HASH_SIZE, 'md5')
+    return hashing_trick(sentence, HASH_SIZE, 'md5')
 
 
 def _train(model, prep_func, train, validation=None, epochs=10, verbose=2):

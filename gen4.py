@@ -35,7 +35,7 @@ def make_sample(rs, cls, *args, **kwargs):
     return cmd, en, tags
 
 
-COUNT=100
+COUNT=1000
 
 def main():
     this_dir = os.path.dirname(__file__)
