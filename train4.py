@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
+import itertools
 import logging
 import os
+import pickle
 import time
 
 import numpy as np
 
-from gensim.models import Word2Vec
-from keras.layers import Flatten
-from keras.layers.embeddings import Embedding
-from keras.models import Sequential
-from keras.preprocessing.sequence import pad_sequences
-from keras.preprocessing.text import hashing_trick
-from seq2seq.models import SimpleSeq2Seq
+from keras.layers import Input, LSTM, Dense
+from keras.models import Model
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelBinarizer
+from keras.preprocessing.sequence import pad_sequences
 
 from translator import Translator
 
@@ -41,61 +40,98 @@ def load_vocab(lines):
     return vectorizer.vocabulary_
 
 
-TOKEN_REPRESENTATION_SIZE = 256
-VOCAB_MAX_SIZE = 20000
-TOKEN_MIN_FREQUENCY = 1
-INPUT_SEQUENCE_LENGTH = 32
-HIDDEN_LAYER_DIMENSION = 512
-ANSWER_MAX_TOKEN_LENGTH = 32
-TRAIN_BATCH_SIZE = 50
+def make_tagger(tags):
+    latent_dim = 256
+    num_encoder_tokens = 100
+    max_encoder_seq_length = 100
+    max_decoder_seq_length = 30
 
-def make_tagger_dataset(tags):
-    tokenized_en_lines = [s.split() + ['$$$'] for s in tags]
-    en_vocab = set()
-    for s in tokenized_en_lines:
-        en_vocab.update(s)
-    en_vocab.add('###')
-    assert(len(en_vocab) < VOCAB_MAX_SIZE) # TODO: actually discard stuff
-    index_to_token = dict(enumerate(en_vocab))
+    tag_vocab = set(itertools.chain.from_iterable(t.split() for t in tags))
+    tag_vocab.add('START')
+    tag_vocab.add('END')
+    tb = LabelBinarizer()
+    tb.fit(list(tag_vocab))
+    num_decoder_tokens = len(tb.classes_)
 
-    return tokenized_en_lines, index_to_token
+    # Define an input sequence and process it.
+    encoder_inputs = Input(shape=(None, num_encoder_tokens))
+    encoder = LSTM(latent_dim, return_state=True)
+    encoder_outputs, state_h, state_c = encoder(encoder_inputs)
+    # We discard `encoder_outputs` and only keep the states.
+    encoder_states = [state_h, state_c]
+
+    # Set up the decoder, using `encoder_states` as initial state.
+    decoder_inputs = Input(shape=(None, num_decoder_tokens))
+    # We set up our decoder to return full output sequences,
+    # and to return internal states as well. We don't use the
+    # return states in the training model, but we will use them in inference.
+    decoder_lstm = LSTM(latent_dim, return_sequences=True, return_state=True)
+    decoder_outputs, _, _ = decoder_lstm(decoder_inputs,
+                                         initial_state=encoder_states)
+    decoder_dense = Dense(num_decoder_tokens, activation='softmax')
+    decoder_outputs = decoder_dense(decoder_outputs)
+
+    # Define the model that will turn
+    # `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
+    model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+    # Run training
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    encoder_model = Model(encoder_inputs, encoder_states)
+
+    decoder_state_input_h = Input(shape=(latent_dim,))
+    decoder_state_input_c = Input(shape=(latent_dim,))
+    decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+    decoder_outputs, state_h, state_c = decoder_lstm(
+        decoder_inputs, initial_state=decoder_states_inputs)
+    decoder_states = [state_h, state_c]
+    decoder_outputs = decoder_dense(decoder_outputs)
+    decoder_model = Model(
+        [decoder_inputs] + decoder_states_inputs,
+        [decoder_outputs] + decoder_states)
+
+    return model, encoder_model, decoder_model, tb
 
 
-def make_nn_model(output_dim):
-    model = Sequential()
-    model.add(Embedding(256, TOKEN_REPRESENTATION_SIZE,
-                        input_length=INPUT_SEQUENCE_LENGTH))
-    model.add(SimpleSeq2Seq(input_dim=TOKEN_REPRESENTATION_SIZE,
-                            input_length=INPUT_SEQUENCE_LENGTH,
-                            hidden_dim=HIDDEN_LAYER_DIMENSION,
-                            output_dim=output_dim,
-                            output_length=ANSWER_MAX_TOKEN_LENGTH,
-                            depth=1))
-    model.compile(loss='categorical_crossentropy', optimizer='rmsprop', metrics=['accuracy'])
-    return model
+def make_tagger_chars(sentences):
+    input_characters = set(itertools.chain(*sentences))
+    input_characters = sorted(list(input_characters))
+    return dict((char, i) for i, char in enumerate(input_characters)), input_characters
 
 
-def _embed(sentence):
-    return hashing_trick(sentence, 256, 'md5')
-    
+def train_tagger(model, tb, sentences, tags, enc_idx):
+    num_samples = len(sentences)  # Number of samples to train on.
+    num_encoder_tokens = 100
+    num_decoder_tokens = len(tb.classes_)
+    max_encoder_seq_length = 100
+    max_decoder_seq_length = 30
 
-def make_training_data(en, tg, index2token):
-    token2index = dict((v, k) for k, v in index2token.items())
-    voc_size = len(token2index)
-    X = pad_sequences([_embed(line) for line in en],
-                      padding='post', maxlen=INPUT_SEQUENCE_LENGTH)
-    Y = np.zeros((len(en), ANSWER_MAX_TOKEN_LENGTH, voc_size), dtype=np.bool)
-    for i, s in enumerate(tg):
-        for ti, t in enumerate(s):
-            Y[i, ti, token2index[t]] = 1
-    return X, Y
+    input_texts = sentences
+    target_texts = tags
+    target_tokens = tb.classes_
 
+    encoder_input_data = np.zeros(
+        (num_samples, max_encoder_seq_length, num_encoder_tokens),
+        dtype='float32')
 
-def train_nn_model(nn_model, en_lines, tagger_tg_dataset):
-    tg_for_nn, index2token = tagger_tg_dataset
+    for i, input_text in enumerate(input_texts):
+        for t, char in enumerate(input_text):
+            encoder_input_data[i, t, enc_idx[char]] = 1.
 
-    X, Y = make_training_data(en_lines, tg_for_nn, index2token)
-    nn_model.fit(X, Y, batch_size=TRAIN_BATCH_SIZE, epochs=10, verbose=1)
+    # add one extra element at the end
+    decoder_data = pad_sequences([encode_tag(tb, target) for target in target_texts],
+                                 padding='post', maxlen=max_decoder_seq_length+1)
+    decoder_target_data = decoder_data[:,1:,:]
+    decoder_input_data = decoder_data[:,:-1,:]
+
+    model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+              batch_size=64,
+              epochs=100,
+              verbose=1,
+              validation_split=0.2)
+
+def encode_tag(tb, line):
+    return tb.transform(['START'] + line.split() + ['END'])
 
 
 def main():
@@ -109,10 +145,21 @@ def main():
     translator = Translator(label_count)
     translator.lb.fit(labels)
 
-    tagger_tg_dataset = make_tagger_dataset(tags)
-    tagger_nn_model = make_nn_model(len(tagger_tg_dataset[1]))
+    test_sentences = load_sentences(os.path.join(data_dir, "dev.en"))
+    test_tags = load_sentences(os.path.join(data_dir, "dev.tg"))
 
-    train_nn_model(tagger_nn_model, sentences, tagger_tg_dataset)
+    enc_idx, enc_chars = make_tagger_chars(sentences+test_sentences)
+    tagger, encoder, decoder, tb = make_tagger(tags+test_tags)
+    train_tagger(tagger, tb, sentences+test_sentences, tags+test_tags, enc_idx)
+
+    tagger.save(os.path.join(data_dir, 's2s.h5'))
+    encoder.save(os.path.join(data_dir, 'encoder.h5'))
+    decoder.save(os.path.join(data_dir, 'decoder.h5'))
+    with open(os.path.join(data_dir, "tag.lb"), "wb") as out:
+        pickle.dump(tb, out)
+
+    with open(os.path.join(data_dir, "chars"), "w") as chars:
+        print(''.join(enc_chars), file=chars)
 
     return
 

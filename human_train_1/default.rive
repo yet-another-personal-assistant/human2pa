@@ -75,7 +75,7 @@
 - {@maybe-please status-without-please}
 - what's your status?
 - are you busy now?
-- what are you doing @{status-when}?
+- what are you doing {@status-when}?
 - what are you doing?
 
 + status-without-please

@@ -24,6 +24,7 @@ def make_sample(rs, cls, *args, **kwargs):
             en.append(just_word)
             tags.append('O')
         else:
+            _, tag = tag.split('-', maxsplit=1)
             words = value.split()
             en.append(words.pop(0))
             tags.append('B-'+tag)
@@ -92,7 +93,7 @@ def main():
         add_sample(make_sample(rs, 'find', t1, 'and', t2))
 
     for _ in range(COUNT):
-        h = int(random.gauss(8, 2))
+        h = max(int(random.gauss(8, 2)), 0)
         m = 5 * random.randrange(12)
         add_sample(make_sample(rs, 'wakeup', h, m))
 
