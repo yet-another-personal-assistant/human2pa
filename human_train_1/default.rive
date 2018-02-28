@@ -81,3 +81,12 @@
 + status-without-please
 - tell me your status {@status-when}
 - tell me your status
+
++ number #
+- data--count(<star>)
+
++ time # #
+- data--time(<star1>:<star2>)
+
++ date *
+- data--when(<star>)

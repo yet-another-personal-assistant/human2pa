@@ -55,7 +55,13 @@ def main():
     rs.load_directory(os.path.join(this_dir, 'human_train_1'))
     rs.sort_replies()
 
-    for c in ('yes', 'no', 'ping', 'acknowledge', 'weather', 'status'):
+    for c in ('yes', 'no'):
+        for _ in range(COUNT//4):
+            add_sample(make_sample(rs, c))
+    for c in ('ping', 'acknowledge'):
+        for _ in range(COUNT//2):
+            add_sample(make_sample(rs, c))
+    for c in ('weather', 'status'):
         for _ in range(COUNT):
             add_sample(make_sample(rs, c))
 
@@ -96,6 +102,20 @@ def main():
         h = max(int(random.gauss(8, 2)), 0)
         m = 5 * random.randrange(12)
         add_sample(make_sample(rs, 'wakeup', h, m))
+
+    for _ in range(COUNT):
+        h = max(int(random.gauss(8, 2)), 0)
+        m = 5 * random.randrange(12)
+        add_sample(make_sample(rs, 'time', h, m))
+
+    when = ['now', 'right now', 'today', 'later today', 'tomorrow']
+    for _ in range(COUNT):
+        w = random.choice(when)
+        add_sample(make_sample(rs, 'date', w))
+
+    for _ in range(COUNT):
+        count = max(int(random.gauss(100, 30)), 1)
+        add_sample(make_sample(rs, 'number', count))
 
     en_lines = [' '.join(e) for e in en]
     tag_lines = [' '.join(t) for t in tags]

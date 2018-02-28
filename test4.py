@@ -8,13 +8,9 @@ from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 
 from translator import Translator
+from translator.seq2seq import Seq2Seq
+from utils import encoder_from_s2s, decoder_from_s2s
 
-
-def encode_sequence(input_seq, enc_idx):
-    encoder_input_data = np.zeros((1, 100, 100), dtype='float32')
-    for t, char in enumerate(input_seq):
-        encoder_input_data[0, t, enc_idx[char]] = 1.
-    return encoder_input_data
 
 def decode_sequence(input_seq, encoder_model, decoder_model, tb):
     # Encode the input as state vectors.
@@ -53,31 +49,17 @@ def main():
     this_dir = os.path.dirname(__file__)
     data_dir = os.path.join(this_dir, "gen_data")
 
-    #s2s = load_model(os.path.join(data_dir, "s2s.h5"))
-    #print(s2s.layers)
-    #return
-
-    encoder = load_model(os.path.join(data_dir, "encoder.h5"))
-    decoder = load_model(os.path.join(data_dir, "decoder.h5"))
-
-    with open(os.path.join(data_dir, "tag.lb"), 'rb') as tag_binarizer:
-        tb = pickle.load(tag_binarizer)
-
-    with open(os.path.join(data_dir, "chars")) as chars:
-        encoder_chars = list(chars.readline())
-
-    enc_idx = dict((v, i) for i, v in enumerate(encoder_chars))
+    s2s = Seq2Seq(data_dir)
 
     tst_en = os.path.join(data_dir, "train.en")
     tst_tg = os.path.join(data_dir, "train.tg")
     with open(tst_en) as fen, open(tst_tg) as ftg:
         count = 0
         for en, tg in zip(fen.readlines(), ftg.readlines()):
-            result =  decode_sequence(encode_sequence(en.strip(), enc_idx), encoder, decoder, tb)
-            if result == ['O']:
-                continue
-            print(en, result)
-            print(tg.split())
+            print(en.strip())
+            print("expected", tg.split())
+            print("actual", s2s.translate(en))
+            print()
             if count > 100:
                 break
             count += 1

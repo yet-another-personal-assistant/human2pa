@@ -9,10 +9,11 @@ import numpy as np
 
 from keras.layers import Input, LSTM, Dense
 from keras.models import Model
+from keras.preprocessing.sequence import pad_sequences
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelBinarizer
-from keras.preprocessing.sequence import pad_sequences
 
+from attention import Attention
 from translator import Translator
 
 
@@ -76,6 +77,8 @@ def make_tagger(tags):
     model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
     # Run training
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    return model, tb
 
     encoder_model = Model(encoder_inputs, encoder_states)
 
@@ -149,12 +152,10 @@ def main():
     test_tags = load_sentences(os.path.join(data_dir, "dev.tg"))
 
     enc_idx, enc_chars = make_tagger_chars(sentences+test_sentences)
-    tagger, encoder, decoder, tb = make_tagger(tags+test_tags)
+    tagger, tb = make_tagger(tags+test_tags)
     train_tagger(tagger, tb, sentences+test_sentences, tags+test_tags, enc_idx)
 
     tagger.save(os.path.join(data_dir, 's2s.h5'))
-    encoder.save(os.path.join(data_dir, 'encoder.h5'))
-    decoder.save(os.path.join(data_dir, 'decoder.h5'))
     with open(os.path.join(data_dir, "tag.lb"), "wb") as out:
         pickle.dump(tb, out)
 

@@ -7,6 +7,8 @@ import numpy as np
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
 
+from utils import load_sentences
+
 
 def train_tagger(model, tb, sentences, tags, enc_idx):
     num_samples = len(sentences)  # Number of samples to train on.
@@ -35,20 +37,18 @@ def train_tagger(model, tb, sentences, tags, enc_idx):
     decoder_target_data = decoder_data[:,1:,:]
     decoder_input_data = decoder_data[:,:-1,:]
 
-    model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
-              batch_size=64,
-              epochs=10,
-              verbose=1,
-              validation_split=0.2)
+    for i in range(10):
+        model.fit([encoder_input_data, decoder_input_data], decoder_target_data,
+                  batch_size=128,
+                  epochs=10,
+                  verbose=1,
+                  validation_split=0.2)
+        print("saving after step", i+1)
+        model.save("gen_data/s2s.h5")
 
 
 def encode_tag(tb, line):
     return tb.transform(['START'] + line.split() + ['END'])
-
-
-def load_sentences(file_name):
-    with open(file_name) as fen:
-        return [l.strip() for l in fen.readlines()]
 
 
 def main():
@@ -61,7 +61,8 @@ def main():
     test_sentences = load_sentences(os.path.join(data_dir, "dev.en"))
     test_tags = load_sentences(os.path.join(data_dir, "dev.tg"))
 
-    tagger = load_model(os.path.join(data_dir, "s2s.h5"))
+    s2s_name = os.path.join(data_dir, "s2s.h5")
+    tagger = load_model(s2s_name)
     
     with open(os.path.join(data_dir, "tag.lb"), 'rb') as tag_binarizer:
         tb = pickle.load(tag_binarizer)
@@ -74,8 +75,6 @@ def main():
     train_tagger(tagger, tb, sentences+test_sentences, tags+test_tags, enc_idx)
 
     tagger.save(os.path.join(data_dir, 's2s.h5'))
-    encoder.save(os.path.join(data_dir, 'encoder.h5'))
-    decoder.save(os.path.join(data_dir, 'decoder.h5'))
 
 
 if __name__ == '__main__':
