@@ -1,0 +1,32 @@
+! version = 2.0
++ hello
+- hello
+- hey
+- hi
+
++ ping
+- {@hello}{random}|, sweetie{/random}
+- {@hello} there
+- {random}are |{/random}you {random}here|there{/random}?
+- ping
+- yo
+
++ yes
+- yes
+- yep
+- yeah
+
++ no
+- no
+- not yet
+- nope
+
++ makiuchi #
+- i did data-makiuchi-count(<star>) maki-uchi {random}today|{/random}
+- i just did data-makiuchi-count(<star>) maki-uchi
+
++ acknowledge
+- thanks
+- thank you
+- got it
+- ok

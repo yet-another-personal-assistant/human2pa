@@ -1,0 +1,48 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "de3251b08b2525a31f79b0351f4066b2f4896b68d0499c173367672cac0d7562"
+        },
+        "host-environment-markers": {
+            "implementation_name": "cpython",
+            "implementation_version": "3.5.2",
+            "os_name": "posix",
+            "platform_machine": "x86_64",
+            "platform_python_implementation": "CPython",
+            "platform_release": "4.8.0-59-generic",
+            "platform_system": "Linux",
+            "platform_version": "#64-Ubuntu SMP Thu Jun 29 19:38:34 UTC 2017",
+            "python_full_version": "3.5.2+",
+            "python_version": "3.5",
+            "sys_platform": "linux"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.5"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.python.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "rivescript": {
+            "hashes": [
+                "sha256:c348ff22844eb03a0c5fe32e7e137f89c50efe797aa58e56e52513edd71debfb",
+                "sha256:3245b0aa1d8ddff47b1c3637b1292d0b92dac06698710818c32c37e2c071cfd2"
+            ],
+            "version": "==1.14.9"
+        },
+        "six": {
+            "hashes": [
+                "sha256:832dc0e10feb1aa2c68dcc57dbb658f1c7e65b9b61af69048abc87a2db00a0eb",
+                "sha256:70e8a77beed4562e7f14fe23a786b54f6296e34344c23bc42f07b15018ff98e9"
+            ],
+            "version": "==1.11.0"
+        }
+    },
+    "develop": {}
+}
