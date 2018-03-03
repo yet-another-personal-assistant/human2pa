@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import random
 import re
@@ -18,22 +19,22 @@ def make_sample(rs, cls, *args, **kwargs):
     result = rs.reply('', ' '.join(map(str, tokens))).strip()
     if result == '[ERR: No Reply Matched]':
         raise Exception("failed to generate string for {}".format(tokens))
-    cmd, en, tags = [cls], [], []
+    cmd, en, rasa_entities = cls, [], []
     for tag, value, just_word in tag_var_re.findall(result):
         if just_word:
             en.append(just_word)
-            tags.append('O')
         else:
             _, tag = tag.split('-', maxsplit=1)
             words = value.split()
-            en.append(words.pop(0))
-            tags.append('B-'+tag)
-            for word in words:
-                en.append(word)
-                tags.append('I-'+tag)
-            cmd.append(tag+':')
-            cmd.append('"'+value+'"')
-    return cmd, en, tags
+            start = len(' '.join(en))
+            if en:
+                start += 1
+            en.extend(words)
+            end = len(' '.join(en))
+            rasa_entities.append({"start": start, "end": end,
+                                  "value": value, "entity": tag})
+            assert ' '.join(en)[start:end] == value
+    return cmd, en, rasa_entities
 
 
 COUNT=1000
@@ -44,12 +45,12 @@ def main():
     tagger_dir = os.path.join(this_dir, 'sequence_tagging')
     tagger_data_dir = os.path.join(tagger_dir, 'data')
 
-    en, pa, tags = [], [], []
+    en, pa, rasa = [], [], []
     def add_sample(sample):
-        p, e, t = sample
+        p, e, r = sample
         en.append(e)
         pa.append(p)
-        tags.append(t)
+        rasa.append(r)
 
     rs = RiveScript(utf8=True)
     rs.load_directory(os.path.join(this_dir, 'human_train_1'))
@@ -116,6 +117,21 @@ def main():
     for _ in range(COUNT):
         count = max(int(random.gauss(100, 30)), 1)
         add_sample(make_sample(rs, 'number', count))
+
+    rasa_examples = []
+    for e, p, r in zip(en, pa, rasa):
+        sample = {"text": ' '.join(e), "intent": p}
+        if r:
+            sample["entities"] = r
+        rasa_examples.append(sample)
+
+    with open(os.path.join(data_dir, "rasa_train.js"), "w") as rf:
+        json.dump({"rasa_nlu_data": {"common_examples": rasa_examples,
+                                     "regex_features": [],
+                                     "entity_synonims": []}},
+                  rf)
+
+    return
 
     en_lines = [' '.join(e) for e in en]
     tag_lines = [' '.join(t) for t in tags]

@@ -10,10 +10,13 @@ import numpy as np
 from keras.layers import Input, LSTM, Dense
 from keras.models import Model
 from keras.preprocessing.sequence import pad_sequences
+from rasa_nlu.config import RasaNLUConfig
+from rasa_nlu.converters import load_data
+from rasa_nlu.model import Trainer
+from rasa_nlu import registry
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import LabelBinarizer
 
-from attention import Attention
 from translator import Translator
 
 
@@ -151,16 +154,14 @@ def main():
     test_sentences = load_sentences(os.path.join(data_dir, "dev.en"))
     test_tags = load_sentences(os.path.join(data_dir, "dev.tg"))
 
-    enc_idx, enc_chars = make_tagger_chars(sentences+test_sentences)
-    tagger, tb = make_tagger(tags+test_tags)
-    train_tagger(tagger, tb, sentences+test_sentences, tags+test_tags, enc_idx)
-
-    tagger.save(os.path.join(data_dir, 's2s.h5'))
-    with open(os.path.join(data_dir, "tag.lb"), "wb") as out:
-        pickle.dump(tb, out)
-
-    with open(os.path.join(data_dir, "chars"), "w") as chars:
-        print(''.join(enc_chars), file=chars)
+    training_data = load_data(os.path.join(data_dir, "rasa_train.js"))
+    config = RasaNLUConfig()
+    config.pipeline = registry.registered_pipeline_templates["spacy_sklearn"]
+    config.max_training_processes = 4
+    trainer = Trainer(config)
+    trainer.train(training_data)    
+    model_dir = trainer.persist(os.path.join(data_dir, "rasa"))
+    print(model_dir)
 
     return
 

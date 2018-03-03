@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
+import glob
 import os
 import pickle
+import pprint
 
 import numpy as np
 
 from keras.models import load_model
 from keras.preprocessing.sequence import pad_sequences
+from rasa_nlu import registry
+from rasa_nlu.config import RasaNLUConfig
+from rasa_nlu.model import Metadata, Interpreter
 
 from translator import Translator
-from translator.seq2seq import Seq2Seq
-from utils import encoder_from_s2s, decoder_from_s2s
 
 
 def decode_sequence(input_seq, encoder_model, decoder_model, tb):
@@ -49,20 +52,27 @@ def main():
     this_dir = os.path.dirname(__file__)
     data_dir = os.path.join(this_dir, "gen_data")
 
-    s2s = Seq2Seq(data_dir)
+    config = RasaNLUConfig()
+    config.pipeline = registry.registered_pipeline_templates["spacy_sklearn"]
+    config.max_training_processes = 4
+    model_dir = glob.glob(data_dir+"/rasa/default/model_*")[0]
+
+    interpreter = Interpreter.load(model_dir, config)
 
     tst_en = os.path.join(data_dir, "train.en")
     tst_tg = os.path.join(data_dir, "train.tg")
     with open(tst_en) as fen, open(tst_tg) as ftg:
-        count = 0
         for en, tg in zip(fen.readlines(), ftg.readlines()):
-            print(en.strip())
+            en = en.strip()
+            print(en)
+            parsed = interpreter.parse(en)
+            result = [parsed['intent_ranking'][0]['name']]
+            for entity in parsed['entities']:
+                result.append(entity['entity']+':')
+                result.append('"'+entity['value']+'"')
+            print(' '.join(result))
             print("expected", tg.split())
-            print("actual", s2s.translate(en))
             print()
-            if count > 100:
-                break
-            count += 1
 
     return
 
