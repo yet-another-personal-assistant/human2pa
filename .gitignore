@@ -3,3 +3,4 @@
 data/
 .venv/
 gen_data/
+training-data
