@@ -64,20 +64,25 @@ def main(path):
             sys.stdout.flush()
         X[t, 0] = data.char_to_ix[i]
         y[t, data.char_to_ix[o]] = 1
-    while True:
-        model.reset_states()
+    try:
+        while True:
+            model.reset_states()
 
-        hist = model.fit(X, y, batch_size=seq_length, epochs=epochs, verbose=verbose)
-        loss = hist.history['loss'][0]
-        smooth_loss = smooth_loss * (1-smoother) + loss * smoother
+            hist = model.fit(X, y, batch_size=seq_length, epochs=epochs, verbose=verbose)
+            loss = hist.history['loss'][0]
+            smooth_loss = smooth_loss * (1-smoother) + loss * smoother
 
-        model.reset_states()
-        print('iter %d, loss: %f' % (n, smooth_loss)) # print progress
-        sample_ix = sample(model, random.choice(data.upper), 200, data.vocab_size)
-        txt = ''.join(data.ix_to_char[ix] for ix in sample_ix)
-        print('----\n', txt, '\n----')
+            model.reset_states()
+            print('iter %d, loss: %f' % (n, smooth_loss)) # print progress
+            sample_ix = sample(model, random.choice(data.upper), 200, data.vocab_size)
+            txt = ''.join(data.ix_to_char[ix] for ix in sample_ix)
+            print('----\n', txt, '\n----')
 
-        n += 1 # iteration counter
+            n += 1 # iteration counter
+    except KeyboardInterrupt:
+        np.save("embedding.npy", model.layers[0].get_weights())
+        model.save('model.h5')
+
 
 if __name__ == '__main__':
     main('data/input.txt')
