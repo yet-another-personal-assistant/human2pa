@@ -82,6 +82,9 @@ def main(path):
     except KeyboardInterrupt:
         np.save("embedding.npy", model.layers[0].get_weights())
         model.save('model.h5')
+        with open('vocab.txt', 'w') as vocab:
+            for i in range(data.vocab_size):
+                print(data.ix_to_char[i], end='', file=vocab)
 
 
 if __name__ == '__main__':
