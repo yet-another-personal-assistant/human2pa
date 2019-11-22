@@ -10,10 +10,6 @@ def nearest(weights, vector, count):
     return i[1:]
 
 
-def emb2char(emb_weights, char):
-    pass
-
-
 def main():
     emb_weights = np.load('embedding.npy')[0]
     vocab_size = emb_weights.shape[0]
@@ -30,6 +26,8 @@ def main():
         #print(char, tuple(emb))
 
     for char, emb in zip(vocab, emb_weights):
+        if not char.isalnum():
+            continue
         neigh = nearest(emb_weights, emb, 5)
         print(repr(char), end=': ')
         print(', '.join(repr(vocab[i]) for i in neigh))

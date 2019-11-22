@@ -73,7 +73,7 @@ def main(path):
             smooth_loss = smooth_loss * (1-smoother) + loss * smoother
 
             model.reset_states()
-            print('iter %d, loss: %f' % (n, smooth_loss)) # print progress
+            print('iter %d, loss: %f' % (n, loss)) # print progress
             sample_ix = sample(model, random.choice(data.upper), 200, data.vocab_size)
             txt = ''.join(data.ix_to_char[ix] for ix in sample_ix)
             print('----\n', txt, '\n----')

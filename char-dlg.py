@@ -88,8 +88,6 @@ class EpochEnd(keras.callbacks.Callback):
 
 
 def train(args, opts):
-    print("Training")
-
     training_data = opts
     if args.training_data is not None:
         with open(args.training_data) as training_list:

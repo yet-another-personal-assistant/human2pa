@@ -6,6 +6,7 @@ import os
 import sys
 
 from bs4 import BeautifulSoup, NavigableString
+import nltk
 
 
 phrases_file = 'data/input.txt'
@@ -120,6 +121,23 @@ def extract(dialogues_file, output_file):
     sys.stdout = stdout
 
 
+def extract_words(dialogues_file, output_file):
+    stdout = sys.stdout
+    if output_file is not None and output_file != '-':
+        sys.stdout = open(output_file, "w")
+    allwords = set()
+    with open(dialogues_file) as tsv:
+        tsv.readline()
+        tsvin = csv.reader(tsv, delimiter='\t')
+        for profile1, profile2, dialogue in tsvin:
+            for participant, phrase in parse_dialogue(dialogue):
+                for word in nltk.tokenize.word_tokenize(phrase):
+                    allwords.add(word)
+    for word in sorted(allwords):
+        print(word)
+    sys.stdout = stdout
+
+
 def main(profiles_file, dialogues_file, args):
     if args.labels is None:
         profiles = load_profiles(profiles_file)
@@ -158,6 +176,9 @@ if __name__ == '__main__':
     extract_parser = subparsers.add_parser("extract")
     extract_parser.add_argument("-o", "--output")
 
+    extract_w_parser = subparsers.add_parser("extract-words")
+    extract_w_parser.add_argument("-o", "--output")
+
     args = parser.parse_args()
     if args.command == 'label':
         label(args)
@@ -165,6 +186,8 @@ if __name__ == '__main__':
         profile(args)
     elif args.command == 'extract':
         extract(args.dialogues, args.output)
+    elif args.command == 'extract-words':
+        extract_words(args.dialogues, args.output)
     else:
         main(os.path.expanduser(args.profiles),
              os.path.expanduser(args.dialogues),
