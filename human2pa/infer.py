@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from flair.models import TextClassifier
+from flair.models import SequenceTagger, TextClassifier
 from flair.embeddings import FlairEmbeddings, StackedEmbeddings, TokenEmbeddings
 
 
@@ -17,3 +17,7 @@ def make_embeddings(path: Path, prefix: str) -> TokenEmbeddings :
 
 def load_cls_model(path: Path) -> TextClassifier:
     return TextClassifier.load(str(path / 'best-model.pt'))
+
+
+def load_tag_model(path: Path) -> SequenceTagger:
+    return SequenceTagger.load(str(path / 'best-model.pt'))

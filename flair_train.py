@@ -12,7 +12,6 @@ import human2pa.train
 
 
 def pretrain_lm(path):
-    path = Path(path)
     tlk_corpus = human2pa.tlk.get_data(path=path)
     mappings = human2pa.train.make_vocab(tlk_corpus, path=path)
     flair_corpus = human2pa.train.make_lm_corpus(tlk_corpus, path=path)
@@ -24,12 +23,25 @@ def pretrain_lm(path):
 
 
 def train_cls(path):
-    path = Path(path)
-    human2pa.gen_data.generate('ru_training', data_dir=path)
-    cls_corpus = human2pa.train.make_cls_corpus(path / 'labels.txt', path=path)
+    cls_corpus_file = path / 'labels.txt'
+    if not cls_corpus_file.exists():
+        human2pa.gen_data.generate('ru_training', data_dir=path)
+
+    cls_corpus = human2pa.train.make_cls_corpus(cls_corpus_file, path=path)
 
     embeddings = human2pa.infer.make_embeddings(path=path, prefix='tlk')
     human2pa.train.train_cls_model(cls_corpus, embeddings, path / 'model-cls')
+
+
+def train_tagger(path):
+    tag_corpus_file = path / 'tags.txt'
+    if not tag_corpus_file.exists():
+        human2pa.gen_data.generate('ru_training', data_dir=path)
+
+    tag_corpus = human2pa.train.make_tag_corpus(tag_corpus_file, path=path)
+
+    embeddings = human2pa.infer.make_embeddings(path=path, prefix='tlk')
+    human2pa.train.train_tag_model(tag_corpus, embeddings, path / 'model-tag')
 
 
 if __name__ == '__main__':
@@ -38,12 +50,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-m", "--model", default="model")
     subparsers = parser.add_subparsers(dest='command')
-    subparsers.add_parser('pretrain')
-    subparsers.add_parser('train-cls')
+    subparsers.add_parser('lm')
+    subparsers.add_parser('cls')
+    subparsers.add_parser('tag')
     args = parser.parse_args()
 
-    if args.command == 'pretrain':
-        pretrain_lm(args.model)
-    elif args.command == 'train-cls':
-        train_cls(args.model)
+    path = Path(args.model)
+    if args.command == 'lm':
+        pretrain_lm(path)
+    elif args.command == 'cls':
+        train_cls(path)
+    elif args.command == 'tag':
+        train_tagger(path)
 
