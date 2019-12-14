@@ -1,0 +1,28 @@
+! version = 2.0
++ hello
+- Привет
+
++ ping
+- {@hello}{random}|, красотка{/random}
+- {random}you |{/random}тут?
+- пинг
+
++ yes
+- да
+- ага
+- угу
+
++ no
+- нет
+- неа
+- еще нет
+
++ makiuchi #
+- я сделал data-makiuchi-count(<star>) макиути
+- я только что сделал data-makiuchi-count(<star>) макиути
+- я сегодня сделал data-makiuchi-count(<star>) макиути
+
++ acknowledge
+- спасибо
+- понял
+- ок

@@ -8,7 +8,10 @@ from pathlib import Path
 import sklearn.model_selection
 
 from flair.data import Dictionary
-from flair.models import LanguageModel
+from flair.datasets import ClassificationCorpus
+from flair.embeddings import DocumentRNNEmbeddings, FlairEmbeddings, StackedEmbeddings, TokenEmbeddings
+from flair.models import LanguageModel, TextClassifier
+from flair.trainers import ModelTrainer
 from flair.trainers.language_model_trainer import LanguageModelTrainer, TextCorpus
 
 
@@ -48,7 +51,7 @@ def make_vocab(corpus, path=Path('.')):
     return result
 
 
-def make_corpus(data, path=Path('.')):
+def make_lm_corpus(data, path=Path('.')):
     result = path / 'corpus'
     train_dir = result / 'train'
     train_dir.mkdir(parents=True, exist_ok=True)
@@ -76,7 +79,7 @@ def make_corpus(data, path=Path('.')):
     return result
 
 
-def train_model(corpus, mappings, model, forward=True, batch_size=50, epochs=50):
+def train_lm_model(corpus, mappings, model, forward=True, batch_size=50, epochs=50):
     dictionary: Dictionary = Dictionary.load_from_file(mappings)
 
     corpus = TextCorpus(corpus,
@@ -94,4 +97,49 @@ def train_model(corpus, mappings, model, forward=True, batch_size=50, epochs=50)
     trainer.train(model,
                   sequence_length=10,
                   mini_batch_size=batch_size,
+                  max_epochs=epochs)
+
+
+def make_cls_corpus(data, path=Path('.')):
+    result = path / 'cls-corpus'
+    result.mkdir(parents=True, exist_ok=True)
+
+    with open(data) as f:
+        lines = f.readlines()
+
+    train, tv = sklearn.model_selection.train_test_split(lines, test_size=0.1)
+    test, valid = sklearn.model_selection.train_test_split(tv, test_size=0.5)
+
+    _LOGGER.info("Train: %d lines", len(train))
+    _LOGGER.info("Test: %d lines", len(test))
+    _LOGGER.info("Validation: %d lines", len(valid))
+
+    with open(result / 'train.txt', 'w') as out:
+        for text in train:
+            print(text.strip(), file=out)
+    with open(result / "test.txt", "w") as out:
+        for text in test:
+            print(text.strip(), file=out)
+    with open(result / "dev.txt", "w") as out:
+        for text in valid:
+            print(text.strip(), file=out)
+
+    return result
+
+
+def train_cls_model(corpus_path, word_embeddings, model, batch_size=32, epochs=150):
+    corpus = ClassificationCorpus(corpus_path)
+    label_dict = corpus.make_label_dictionary()
+    document_embeddings = DocumentRNNEmbeddings([word_embeddings],
+                                                hidden_size=512,
+                                                reproject_words=True,
+                                                reproject_words_dimension=256)
+    classifier = TextClassifier(document_embeddings, label_dictionary=label_dict)
+    trainer = ModelTrainer(classifier, corpus)
+
+    trainer.train(model,
+                  learning_rate=0.1,
+                  mini_batch_size=batch_size,
+                  anneal_factor=0.5,
+                  patience=5,
                   max_epochs=epochs)
